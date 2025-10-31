@@ -1,0 +1,5139 @@
+{
+  "name": "IG_Image_Gen_Automated_Updated",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 18
+            }
+          ]
+        }
+      },
+      "id": "158155ed-5756-4519-b839-67f62f9d0043",
+      "name": "Trigger: Start Daily Content Generation",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -1168,
+        432
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const personas = [\n  \"Online dating app user\",\n  \"Privacy-conscious tech user\",\n  \"QA engineer testing OTP flows\",\n  \"International traveler / digital nomad\",\n  \"Coupon / promo hunter\",\n  \"Freelancer or remote worker\",\n  \"Crypto / Telegram user managing multiple identities\"\n];\n\nconst randomIndex = Math.floor(Math.random() * personas.length);\nconst selectedPersona = personas[randomIndex];\n\nreturn [\n  {\n    json: {\n      persona: selectedPersona\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -800,
+        320
+      ],
+      "id": "0197a819-8c84-4dd4-9f0b-ed8072904440",
+      "name": "Random Persona Generator"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4\",\n  \"temperature\": 0,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a search intent and sentiment analysis engine.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this keyword: \\\"{{ $json.keyword }}\\\"\\n\\nReturn the following in JSON format:\\n1. top searches\\n2. top 3 keywords\\n3. search intent (e.g. informational, transactional, navigational)\\n4. user_expections: what the user expects to find when they visit a website based on this query\"\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        496
+      ],
+      "id": "3e4135f9-1744-44fb-b528-4a4d3f1a855b",
+      "name": "Keyword Analyzer",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawContent = $json.choices[0].message.content;\n\ntry {\n  const parsed = JSON.parse(rawContent);\n\n  return [\n    {\n      json: {\n        top_searches: parsed.top_searches || [],\n        top_3_keywords: parsed.top_3_keywords || [],\n        search_intent: parsed.search_intent || \"\",\n        user_expectations: parsed.user_expectations || \"\"\n      }\n    }\n  ];\n} catch (error) {\n  return [\n    {\n      json: {\n        error: \"Failed to parse JSON\",\n        raw_output: rawContent\n      }\n    }\n  ];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        496
+      ],
+      "id": "2a939363-a23c-4b21-a535-152e54d37b83",
+      "name": "Output Parser"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -496,
+        336
+      ],
+      "id": "45a5b4b1-aa95-4eb0-b97c-d6d8d4489d1b",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle merge output in Append mode (2 items)\nconst item1 = items[0].json;\nconst item2 = items[1].json;\n\n// If either item has stringified JSON (like from OpenAI), parse them\nconst parsed1 = typeof item1.content === \"string\" ? JSON.parse(item1.content) : item1;\nconst parsed2 = typeof item2.content === \"string\" ? JSON.parse(item2.content) : item2;\n\n// Merge and return\nreturn [\n  {\n    json: {\n      ...parsed1,\n      ...parsed2\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        336
+      ],
+      "id": "4ee96bc9-bfe0-4ef5-a8d3-c2a6f43cf51d",
+      "name": "Combined Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You are a creative strategist generating prompts for a Cinematic style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium. Image height and width is 1080x1080.\n\nYou can also use \"virtual phone numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much..\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\nThe emotion of the image should be happy.\n\nCreate an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nThe final image should be cinematic, use sarcasm or humour wherever needed.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells Quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        224
+      ],
+      "id": "3705ce49-4213-4840-9eff-162d433d9643",
+      "name": "Cinematic"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You are a creative strategist generating prompts for a Meme style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium.\n\nYou can also use \"virtual numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much.\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\n\nThe emotion of the image should be happy.\n\nCreate an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nThe final image should be a meme, use any meme templates and also use sarcasm or humour wherever needed.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "733d381e-f792-49e8-b713-53783e7cc659",
+      "name": "Meme"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n    json: {\n    prompt: `You are a creative strategist generating prompts for a DirectAd style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium. Image height and width is 1080x1080.\n\nIf you ask a question, ask it with the persona in a third perpective.\n\nYou can also use \"virtual phone numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much..\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\n\nThe emotion of the image should be happy.\n\nCreate an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nThe final image should be a direct ad.\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells Quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        448
+      ],
+      "id": "44432962-4bc6-4462-b9dc-c989a219c91b",
+      "name": "DirectAd"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n    json: {\n    prompt: `You are a creative strategist generating prompts for a Shockbait style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium. Image height and width is 1080x1080.\n\nYou can also use \"virtual phone numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much..\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\n\nThe emotion of the image should be happy.\n\nCreate an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells Quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        672
+      ],
+      "id": "6b5692e7-756e-4d39-8f81-1222d6d379af",
+      "name": "Shockbait"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prompts = $items();\nconst labels = [\"meme_prompt\", \"cinematic_prompt\", \"directad_prompt\", \"shockbait_prompt\"];\n\nreturn prompts.map((item, index) => {\n  return {\n    json: {\n      type: labels[index],\n      prompt: item.json?.prompt || item.json?.text || \"\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        1072
+      ],
+      "id": "d2510ab3-4302-460a-8cdf-2f7b0890f720",
+      "name": "Combine Prompts"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "model": "gpt-image-1",
+        "prompt": "={{ $json.prompt }}",
+        "options": {
+          "quality": "medium",
+          "size": "1536x1024"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -944,
+        928
+      ],
+      "id": "f02c560a-56da-495c-bd25-1a61efd92b67",
+      "name": "Generate an image",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1FhXYa5bZKs9V42mbaoVFlgQggA0-83NyeaYZcLH1A-U/edit?usp=drive_link",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Quackr Keywords - Quackr Keywords",
+          "mode": "name"
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -912,
+        496
+      ],
+      "id": "d21f5597-cdbc-4953-acb5-e62680194240",
+      "name": "Keywords",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $items();\n\n// Pick a random row\nconst randomIndex = Math.floor(Math.random() * items.length);\nconst row = items[randomIndex].json;\n\n// Return the full row (optional), or just the keyword\nreturn [\n  {\n    json: {\n      keyword: row[\"Keyword\"], // exact column name\n      traffic: row[\"Avg. Monthly Traffic\"],\n      bid_low: row[\"Top of page bid (low)\"],\n      bid_high: row[\"Top of page bid (high)\"],\n      competition: row[\"Competition\"],\n      match_type: row[\"Match Type\"]\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -704,
+        496
+      ],
+      "id": "83eaa59f-e27e-4d2c-aaad-d9c7d7620860",
+      "name": "Random Keyword Generator"
+    },
+    {
+      "parameters": {
+        "jsCode": "const labels = [\"meme\", \"cine\", \"ad\", \"shock\"];\n\nreturn items.map((item, index) => {\n  const now = new Date();\n  const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0].replace('T', '_');\n  const label = labels[index] || `image_${index + 1}`;\n  const fileName = `${label}_${timestamp}.png`;\n\n  const binaryFieldName = Object.keys(item.binary || {})[0];\n\n  return {\n    json: {\n      ...item.json,\n      image_label: label,\n      image_name: fileName,\n      timestamp\n    },\n    binary: {\n      [binaryFieldName]: {\n        ...item.binary[binaryFieldName],\n        fileName: fileName\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        928
+      ],
+      "id": "8b73044a-b9a2-419a-a472-56c86b5a0908",
+      "name": "Rename Images"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.image_name }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "=https://drive.google.com/drive/folders/1n9LEDfEzGdgbbNwOcu8ZJSANhMAfFEwl?usp=sharing",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -544,
+        1040
+      ],
+      "id": "8bfcc347-635b-44ce-a1b9-4ce1ff148f56",
+      "name": "Upload File",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "xPESZJerDCw4ZkFC",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=SYSTEM:\nYou write short, cheeky Instagram captions. Return STRICT JSON only.\n\nUSER:\nType: {{ $json.type }}\nIdea: {{ $json.idea || $json.prompt }}\nTop searches: {{ $json.top_searches }}\nTop keywords: {{ $json.top_3_keywords }}\nUser expectations: {{ $json.user_expectations }}\n\nRules:\n- ≤ 100 words, conversational, a bit sarcastic.\n- Include 1–2 emojis (in the caption).\n- Privacy-forward benefits; no hard sell.\n- Build space-separated hashtags that actually fit the idea.\n- Return ONLY this JSON:\n{\n  \"caption\": \"string (the main caption text)\"\n}\n\nTake this caption as reference:\nStill handing out your real number like candy? Seriously? ☹️.\n\nTemporary numbers aren't just for spies in movies.\nThey're for humans in 2025 who know that privacy ≠ paranoia.\n\nUse Quackr to verify WhatsApp, sign up for Telegram, or avoid those weird follow-up calls from marketplace randos.\n\nIt’s easy, secure, and doesn’t involve putting on pants.\n\n💬 Comment if this made you smirk\n🔗 Link in bio\n\nOUTPUT EXACTLY IN THIS TEMPLATE in every caption:\n\"Caption\"\n\"\\n\\n→ Try it today!!: Link in bio 🔗\"\n\"\\n\\n Hashtags\""
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -336,
+        1200
+      ],
+      "id": "cfc5de24-45e1-4eb7-b208-b77ea2c60fbe",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: single combined object with keys like meme_prompt, cinematic_prompt, directad_prompt, shockbait_prompt\n// Also includes: top_searches, top_3_keywords, search_intent, user_expectations\n// Output: one item per prompt, each including the extra variables (both as fields and inside the prompt text)\n\nconst src = $json;\n\nconst map = {\n  meme_prompt: 'meme',\n  cinematic_prompt: 'cine',\n  directad_prompt: 'ad',\n  shockbait_prompt: 'shock',\n};\n\nconst str = (v) =>\n  Array.isArray(v) ? v.filter(Boolean).join(', ') : (v ?? '');\n\nconst extras = {\n  top_searches: str(src.top_searches),\n  top_3_keywords: str(src.top_3_keywords),\n  search_intent: str(src.search_intent),\n  user_expectations: str(src.user_expectations),\n};\n\nconst out = [];\n\nfor (const [key, type] of Object.entries(map)) {\n  if (!src[key]) continue;\n\n  const idea = String(src[key]);\n\n  out.push({\n    json: {\n      type,\n      // Prompt includes the extras so your caption model can use them\n      prompt:\n        `Write a short, engaging Instagram caption for this idea: \"${idea}\". ` +\n        `Use 1–2 emojis and all applicable hashtags. ` +\n        `Context — Top searches: ${extras.top_searches}; ` +\n        `Keywords: ${extras.top_3_keywords}; ` +\n        `Intent: ${extras.search_intent}; ` +\n        `User expectations: ${extras.user_expectations}.`,\n      // Also expose extras as separate fields for downstream nodes\n      top_searches: extras.top_searches,\n      top_3_keywords: extras.top_3_keywords,\n      search_intent: extras.search_intent,\n      user_expectations: extras.user_expectations,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -544,
+        1200
+      ],
+      "id": "6995276c-830a-4a65-b1e0-14ce5e02fbd5",
+      "name": "Caption Generator"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Id": "==ROW()-1",
+            "Image Name": "={{ $json.image_name }}",
+            "Timestamp": "={{ $json.timestamp }}",
+            "Type": "={{ $json.image_label }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -544,
+        816
+      ],
+      "id": "06e1989c-6614-4ef3-941c-fa419c308c2f",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        304,
+        304
+      ],
+      "id": "ece081cc-a51d-4791-af25-b9bdba98a55f",
+      "name": "Merge Prompts"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Image Name": "={{ $json[\"Image Name\"] }}",
+            "Image URL": "={{ $json.url }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        48,
+        928
+      ],
+      "id": "d2e60b6e-3bb2-454d-9270-26af955cb585",
+      "name": "Update URL",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $items();  // merged items from both inputs\n\nconst metaItems = items.filter(item => item.json[\"Image Name\"]);\nconst driveItems = items.filter(item => item.json.name && item.json.webContentLink);\n\nconst combined = metaItems.map(meta => {\n  const match = driveItems.find(d => d.json.name.trim() === meta.json[\"Image Name\"].trim());\n\n  return {\n    json: {\n      ...meta.json,\n      url: match?.json?.webContentLink || null\n    }\n  };\n});\n\nreturn combined;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        928
+      ],
+      "id": "83ee9fb5-fbcf-4fc0-9b1b-4bfe0ace84a6",
+      "name": "Combine Metadata"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -336,
+        928
+      ],
+      "id": "7055d275-5bc3-44ef-b420-fa2372128c81",
+      "name": "Merge Metadata"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Step 1: Separate items\nconst imageItems = items.filter(i => i[\"Image Name\"] && i[\"Image URL\"]);\nconst captionItems = items.filter(i => i.message && i.message.content && i.message.content.caption);\n\n// Step 2: Map and combine\nconst output = imageItems.map((img, index) => {\n  const caption = captionItems[index]?.message.content.caption || \"\";\n\n  // Clean the caption by removing \" dash \" and replacing \"dash\" with an empty string\n  const cleanCaption = caption\n    .replace(/\\s*dash\\s*/g, '')  // Removes \" dash \" (with spaces) without replacing with empty string\n    .replace(/dash/g, '');        // Replaces \"dash\" (without spaces) with an empty string\n\n  return {\n    json: {\n      Type: img.Type,\n      \"Image Name\": img[\"Image Name\"],\n      Timestamp: img.Timestamp,\n      url: img[\"Image URL\"],\n      instagram_caption: cleanCaption,  // Apply cleaned caption\n      node_id: \"17841475746665688\"\n    }\n  };\n});\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        1264
+      ],
+      "id": "d23cc225-3939-4822-bd7f-08a4bf70d6c3",
+      "name": "Combine Captions"
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "image_url",
+                "value": "={{ $json.url }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.caption }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        1040
+      ],
+      "id": "c189ff00-b695-485e-94e0-2cc50faccabf",
+      "name": "Create Container ID",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json[\"Image Name\"] }}"
+            }
+          ]
+        },
+        "combineFilters": "OR",
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        672,
+        1056
+      ],
+      "id": "5093d82f-4deb-4c05-b9fa-ad9b71b8cd6e",
+      "name": "Get row(s) in sheet",
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Instagram Caption": "={{ $json.instagram_caption }}",
+            "Image Name": "={{ $json[\"Image Name\"] }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        464,
+        1056
+      ],
+      "id": "636b7c2a-0f8c-4f46-9813-a0a575abc61a",
+      "name": "Update Captions",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1120,
+        1040
+      ],
+      "id": "9c97a21a-3b9e-465c-892a-36ada0c752b7",
+      "name": "Merge Container Metadata"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        128,
+        1264
+      ],
+      "id": "f03b197a-fd46-46b6-b030-80be4122a3ae",
+      "name": "Merge All"
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadItems = items.filter(item => item.json.url); // ImageKit upload results\nconst sheetItems = items.filter(item => item.json[\"Instagram Caption\"]); // Sheet rows\n\n// Pick a single random caption from all available captions\nconst captionsPool = sheetItems.map(row => row.json[\"Instagram Caption\"]).filter(Boolean);\nconst randomCaption = captionsPool.length > 0\n  ? captionsPool[Math.floor(Math.random() * captionsPool.length)]\n  : \"\";\n\nreturn uploadItems.map(upload => {\n  return {\n    json: {\n      url: upload.json.url,\n      caption: randomCaption\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        1040
+      ],
+      "id": "444c1fe1-d0c7-4e0a-8f53-5fa9d8f7f45a",
+      "name": "Combine Container Metadata"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "f34a07a8-b5df-4aae-af7b-3a201d409e96",
+      "name": "Trigger: Start Daily Content Generation1",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -1184,
+        1952
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const personas = [\n  \"Online dating app user\",\n  \"Privacy-conscious tech user\",\n  \"QA engineer testing OTP flows\",\n  \"Marketplace seller\",\n  \"International traveler / digital nomad\",\n  \"Coupon / promo hunter\",\n  \"Freelancer or remote worker\",\n  \"Crypto / Telegram user managing multiple identities\"\n];\n\nconst randomIndex = Math.floor(Math.random() * personas.length);\nconst selectedPersona = personas[randomIndex];\n\nreturn [\n  {\n    json: {\n      persona: selectedPersona\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        1952
+      ],
+      "id": "3d4ab50d-4adc-481c-838f-b118ce80720a",
+      "name": "Random Persona Generator1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You're a digital nomad and privacy advocate posting to your followers on Instagram. Your goal is to make them think twice about digital surveillance, data collection, and platform control — but in a relatable, witty, and scroll-stopping way.\n\nBased on the persona ${$json.persona} generate the image.\n\nAudience: Gen Z and Millennials who love tech, memes, sarcasm, and online freedom.\n\nTone: bold, witty, sarcastic, sometimes humorous, sometimes dead serious.\n\nGenerate a meme styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nThe emotion of the image should be happy.\n\nThe final image should be a meme, use any famous meme templates and also use sarcasm or humour wherever needed. Do not use the word free or quackr or the quackr logo anywhere.\n\nKeep the font size medium and all the words in the image must be readable.\n\nNow write a prompt for the meme.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        1792
+      ],
+      "id": "c1b82e1c-156b-4621-8635-6130fa94e2c5",
+      "name": "Meme1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You're a digital nomad and privacy advocate posting to your followers on Instagram. Your goal is to make them think twice about digital surveillance, data collection, and platform control — but in a relatable, witty, and scroll-stopping way.\n\nBased on the persona ${$json.persona} generate the image.\n\nAudience: Gen Z and Millennials who love tech, memes, sarcasm, and online freedom.\n\nTone: bold, witty, sarcastic, sometimes humorous, sometimes dead serious.\n\nGenerate a cinematic styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nThe emotion of the image should be happy.\n\nThe final image should be a cinematic, use sarcasm or humour wherever needed. Do not use the word free or quackr or the quackr logo anywhere.\n\nKeep the font size medium and all the words in the image must be readable.\n\nNow write a prompt for the meme.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        1952
+      ],
+      "id": "c9bface6-3b37-4ad1-aa4c-b8d2e8376812",
+      "name": "Cinematic1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You're a digital nomad and privacy advocate posting to your followers on Instagram. Your goal is to make them think twice about digital surveillance, data collection, and platform control — but in a relatable, witty, and scroll-stopping way.\n\nBased on the persona ${$json.persona} generate the image.\n\nAudience: Gen Z and Millennials who love tech, memes, sarcasm, and online freedom.\n\nTone: bold, witty, sarcastic, sometimes humorous, sometimes dead serious.\n\nGenerate a direct ad styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nThe emotion of the image should be happy.\n\nThe final image should be a direct ad, use sarcasm or humour wherever needed. Do not use the word free or quackr or the quackr logo anywhere.\n\nKeep the font size medium and all the words in the image must be readable.\n\nNow write a prompt for the meme.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -832,
+        2112
+      ],
+      "id": "56a026b1-7ad4-4d2f-8071-b75d14c06d9b",
+      "name": "DirectAd1"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "model": "gpt-image-1",
+        "prompt": "={{ $json.prompt }}",
+        "options": {
+          "quality": "medium",
+          "size": "1536x1024"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -288,
+        1952
+      ],
+      "id": "a457bc5d-df80-496c-a9b4-52a807cff1e8",
+      "name": "Generate an image1",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const labels = [\"meme\", \"cine\", \"ad\", \"shock\"];\n\nreturn items.map((item, index) => {\n  const now = new Date();\n  const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0].replace('T', '_');\n  const label = labels[index] || `image_${index + 1}`;\n  const fileName = `${label}_${timestamp}.png`;\n\n  const binaryFieldName = Object.keys(item.binary || {})[0];\n\n  return {\n    json: {\n      ...item.json,\n      image_label: label,\n      image_name: fileName,\n      timestamp\n    },\n    binary: {\n      [binaryFieldName]: {\n        ...item.binary[binaryFieldName],\n        fileName: fileName\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -96,
+        1952
+      ],
+      "id": "2a2f039f-a4b5-46ac-8c1b-79622e109045",
+      "name": "Rename Images1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        704,
+        2208
+      ],
+      "id": "1635c531-d83c-4585-bdf9-6e375ead11ef",
+      "name": "Merge All1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Step 1: Separate image and caption items\nconst imageItems = items.filter(i => i[\"Image Name\"] && i[\"Image URL\"]);\nlet captionItems = items.filter(i => i.content);\n\n// Step 2: Clean the captions\ncaptionItems = captionItems.map(i => {\n  let cleaned = i.content;\n\n  // Remove all types of quotes (straight, curly, single, double)\n  cleaned = cleaned.replace(/[\"'“”‘’]/g, \"\");\n\n  // Remove slashes, leading/trailing junk\n  cleaned = cleaned.replace(/^[/\\\\\\s]+|[/\\\\\\s]+$/g, \"\");\n\n  // Remove \"caption\" or \"captions\" at start\n  cleaned = cleaned.replace(/^(captions?)\\s*[:\\-–—]*\\s*/i, \"\");\n\n  // Final cleanup\n  cleaned = cleaned.trim();\n\n  return { ...i, content: cleaned };\n});\n\n// Step 3: Build final output\nconst output = imageItems.map((img, index) => ({\n  json: {\n    Type: img.Type,\n    \"Image Name\": img[\"Image Name\"],\n    Timestamp: img.Timestamp,\n    url: img[\"Image URL\"],\n    instagram_caption: captionItems[index]?.content || \"\",\n    node_id: \"17841475746665688\"\n  }\n}));\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        2208
+      ],
+      "id": "6f9a90bf-0555-4bc1-809a-3513e295a079",
+      "name": "Combine Captions1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $items();  // merged items from both inputs\n\nconst metaItems = items.filter(item => item.json[\"Image Name\"]);\nconst driveItems = items.filter(item => item.json.name && item.json.webContentLink);\n\nconst combined = metaItems.map(meta => {\n  const match = driveItems.find(d => d.json.name.trim() === meta.json[\"Image Name\"].trim());\n\n  return {\n    json: {\n      ...meta.json,\n      url: match?.json?.webContentLink || null\n    }\n  };\n});\n\nreturn combined;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        1952
+      ],
+      "id": "d2c1fcc9-3b65-44f7-96dd-c947475a9613",
+      "name": "Combine Metadata1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Id": "==ROW()-1",
+            "Image Name": "={{ $json.image_name }}",
+            "Timestamp": "={{ $json.timestamp }}",
+            "Type": "={{ $json.image_label }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        96,
+        1824
+      ],
+      "id": "7eefee7c-c985-4d6d-a1f9-05ad4fd2f7f7",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        288,
+        1952
+      ],
+      "id": "5d18109b-96f7-492c-90ba-f5f754091134",
+      "name": "Merge Metadata1"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.image_name }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "=https://drive.google.com/drive/folders/1VgMHQmIpE0f55_Xu7pYMRPgMST4840rQ?usp=sharing",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        96,
+        2064
+      ],
+      "id": "572862d7-cc03-4135-9c71-9519cf88abbc",
+      "name": "Upload File1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "xPESZJerDCw4ZkFC",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Instagram Caption": "={{ $json.instagram_caption }}",
+            "Image Name": "={{ $json[\"Image Name\"] }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1104,
+        2128
+      ],
+      "id": "f2f184bf-6f76-4c8c-a388-ae30f149dcea",
+      "name": "Update Captions1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json['Image Name'] }}"
+            }
+          ]
+        },
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1296,
+        2128
+      ],
+      "id": "e97d30ce-f5b8-4d58-a55f-d7cd5b2a1378",
+      "name": "Get row(s) in sheet1",
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Image Name": "={{ $json[\"Image Name\"] }}",
+            "Image URL": "={{ $json.url }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        688,
+        1952
+      ],
+      "id": "3f82512d-0a1d-4fb3-964a-ae1ab68765b1",
+      "name": "Update URL1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://upload.imagekit.io/api/v1/files/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json[\"Image URL\"] }}"
+            },
+            {
+              "name": "fileName",
+              "value": "={{ $json[\"Image Name\"] }}"
+            },
+            {
+              "name": "useUniqueFileName",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1472,
+        2000
+      ],
+      "id": "e77a5516-c57a-4a61-85d3-b0c1d37a7099",
+      "name": "HTTP Request3",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "0skI5Od4ZVbLAMBi",
+          "name": "Image Kit"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1648,
+        2112
+      ],
+      "id": "c8b2d603-1c28-4ebd-8fc3-45da38a539df",
+      "name": "Merge Container Metadata1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadItems = items.filter(item => item.json.url); // ImageKit upload results\nconst sheetItems = items.filter(item => item.json[\"Instagram Caption\"]); // Sheet rows\n\nreturn uploadItems.map(upload => {\n  const name = upload.json.name || \"\";\n  let matchedType = \"\";\n\n  // Extract prefix from name (e.g., meme_20250805... → meme)\n  const match = name.match(/^(meme|cine|ad|shock)/);\n  if (match) matchedType = match[1];\n\n  // Find matching row from sheet by Type\n  const matchedRow = sheetItems.find(row => row.json.Type === matchedType);\n\n  return {\n    json: {\n      url: upload.json.url,\n      caption: matchedRow ? matchedRow.json[\"Instagram Caption\"] : \"\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        2112
+      ],
+      "id": "eca3a4ab-3cfd-4d22-b3ec-ae6a7053793e",
+      "name": "Combine Container Metadata1"
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "image_url",
+                "value": "={{ $json.url }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.caption }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        2064,
+        2112
+      ],
+      "id": "654cb853-347f-4a47-8343-09fa7df1e19e",
+      "name": "Create Container ID1",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media_publish",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "creation_id",
+                "value": "={{ $json.id }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        2272,
+        2112
+      ],
+      "id": "90087dab-2329-428e-8caa-47086bfd31f1",
+      "name": "Create Post1",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -656,
+        1936
+      ],
+      "id": "505f5c56-cedd-4e22-ab2b-0c47e3a28930",
+      "name": "Merge Prompts1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prompts = $items();\nconst labels = [\"meme_prompt\", \"cinematic_prompt\", \"directad_prompt\", \"shockbait_prompt\"];\n\nreturn prompts.map((item, index) => {\n  return {\n    json: {\n      type: labels[index],\n      prompt: item.json?.prompt || item.json?.text || \"\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        1952
+      ],
+      "id": "95f93627-d00f-4f1b-a91e-203ef1aeeb94",
+      "name": "Combine Prompts1"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "text": "Analyze the images and generate a instagram caption for each image.\n\nEach caption must follow the below guidelines:\n\n- 1–2 sentences max\n- Hooks them in the first line\n- Add all applicable hashtags, punchy truth bombs or thoughts\n\nOccasionally reference:\n- Surveillance capitalism\n- VPNs, burner numbers, encrypted apps\n- “Digital freedom,” “privacy,” “you’re the product,” etc.\n\nExamples of style:\n- “If the app is free, you’re probably the product.”\n- “Using incognito like it’s invisibility. Google still sees you, king.”\n- “One day we’ll explain to kids we traded privacy for ‘Which Marvel character are you?’ quizzes.”\n\nBefore the hashtags line, add this line for every caption.\n\"→ Try it today!!: Link in bio 🔗\"\n\nAlso it is important you include the below template in every caption:\n\"Caption\"\n\"\\n\\n→ Try it today!!: Link in bio 🔗\"\n\"\\n\\n Hashtags\"",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -96,
+        2224
+      ],
+      "id": "3ea0919b-ca85-4492-9275-7cf57670d727",
+      "name": "Analyze image",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json['Image Name'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        896,
+        1952
+      ],
+      "id": "9481a8a9-93f5-48b9-a15a-f57afde064d9",
+      "name": "Get row(s) in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media_publish",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "creation_id",
+                "value": "={{ $json.id }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        1248
+      ],
+      "id": "cca55185-2a8e-4c0d-8946-0cc3bd65008a",
+      "name": "Create Post",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ids = $input.all().map(item => item.json.id);\n\nreturn [{\n  json: {\n    children: ids\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        1040
+      ],
+      "id": "4d3663af-44b2-4236-810f-e567078e6b5f",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 12
+            }
+          ]
+        }
+      },
+      "id": "47661259-7f00-4345-a135-d7a44e7562e4",
+      "name": "Trigger: Start Daily Content Generation2",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -1184,
+        3056
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const personas = [\n  \"Online dating app user\",\n  \"Privacy-conscious tech user\",\n  \"QA engineer testing OTP flows\",\n  \"Marketplace seller\",\n  \"International traveler / digital nomad\",\n  \"Coupon / promo hunter\",\n  \"Freelancer or remote worker\",\n  \"Crypto / Telegram user managing multiple identities\"\n];\n\nconst randomIndex = Math.floor(Math.random() * personas.length);\nconst selectedPersona = personas[randomIndex];\n\nreturn [\n  {\n    json: {\n      persona: selectedPersona\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        2912
+      ],
+      "id": "4a417edf-8df1-4815-a808-b3e8202b3a4b",
+      "name": "Random Persona Generator2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4\",\n  \"temperature\": 0,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a search intent and sentiment analysis engine.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this keyword: \\\"{{ $json.keyword }}\\\"\\n\\nReturn the following in JSON format:\\n1. top searches\\n2. top 3 keywords\\n3. search intent (e.g. informational, transactional, navigational)\\n4. user_expections: what the user expects to find when they visit a website based on this query\"\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -496,
+        3184
+      ],
+      "id": "6677e5bf-7ece-4fbb-b40d-37e0d544061f",
+      "name": "Keyword Analyzer1",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawContent = $json.choices[0].message.content;\n\ntry {\n  const parsed = JSON.parse(rawContent);\n\n  return [\n    {\n      json: {\n        top_searches: parsed.top_searches || [],\n        top_3_keywords: parsed.top_3_keywords || [],\n        search_intent: parsed.search_intent || \"\",\n        user_expectations: parsed.user_expectations || \"\"\n      }\n    }\n  ];\n} catch (error) {\n  return [\n    {\n      json: {\n        error: \"Failed to parse JSON\",\n        raw_output: rawContent\n      }\n    }\n  ];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        3184
+      ],
+      "id": "466f9fec-93fc-465f-997d-68d1e188e619",
+      "name": "Output Parser1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -720,
+        2928
+      ],
+      "id": "9b350a39-ce5d-4ca0-b51c-fa8a4bdf4211",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle merge output in Append mode (2 items)\nconst item1 = items[0].json;\nconst item2 = items[1].json;\n\n// If either item has stringified JSON (like from OpenAI), parse them\nconst parsed1 = typeof item1.content === \"string\" ? JSON.parse(item1.content) : item1;\nconst parsed2 = typeof item2.content === \"string\" ? JSON.parse(item2.content) : item2;\n\n// Merge and return\nreturn [\n  {\n    json: {\n      ...parsed1,\n      ...parsed2\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        2928
+      ],
+      "id": "cdaf33bc-8611-4ed1-a43b-620f91c38f5a",
+      "name": "Combined Output1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You are a creative strategist generating prompts for a Cinematic style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium. Image height and width is 1080x1080.\n\nYou can also use \"virtual phone numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much..\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\n\nGenerate a meme styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nThe emotion of the image should be happy.\nThe final image should be cinematic, use sarcasm or humour wherever needed.\n\nDo not use the word free or quackr or the quackr logo anywhere.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells Quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        2768
+      ],
+      "id": "f987a381-f2eb-49f5-860d-e25355cf75f2",
+      "name": "Cinematic2"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You are a creative strategist generating prompts for a Meme style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium. Image height and width is 1080x1080.\n\nYou can also use \"virtual numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much.\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\n\nGenerate a meme styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nThe final image should be a meme, use any meme templates and also use sarcasm or humour wherever needed. Do not use the word free or quackr or the quackr logo anywhere.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        2608
+      ],
+      "id": "169d0958-9993-4915-a27e-4b8200b5a297",
+      "name": "Meme2"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n    json: {\n    prompt: `You are a creative strategist generating prompts for a DirectAd style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium. Image height and width is 1080x1080.\n\nIf you ask a question, ask it with the persona in a third perpective.\n\nYou can also use \"virtual phone numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much..\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\nThe emotion of the image should be happy.\n\nGenerate a meme styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nThe final image should be a direct ad. Do not use the word free or quackr or the quackr logo anywhere.\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells Quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        2928
+      ],
+      "id": "11a329a0-9f19-4d0f-a9f1-5f8b72d8c1fc",
+      "name": "DirectAd2"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n    json: {\n    prompt: `You are a creative strategist generating prompts for a Shockbait style Quackr marketing campaign. Do not use the word free or quackr or the quackr logo anywhere. Keep the font size medium. Image height and width is 1080x1080.\n\nYou can also use \"virtual phone numbers\" or \"no id required\", if and only if applicable. Do not use the word temporary too much..\n\nIf you ask a question, ask it with the persona in a first or third perpective. You can choose that.\n\nThe emotion of the image should be happy. Do not use the word free or quackr or the quackr logo anywhere.\n\nGenerate a meme styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nPersona: ${$json.persona}\nUser Expectations: ${$json.user_expectations}\n\nReturn a JSON with properties:\n1. image_prompt: A visual concept prompt for image generation that captures attention and sells Quackr benefits.\n\nFormat strictly as JSON.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        3072
+      ],
+      "id": "44e866fe-6245-4405-8e93-d4ffdf160ec1",
+      "name": "Shockbait1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prompts = $items();\nconst labels = [\"meme_prompt\", \"cinematic_prompt\", \"directad_prompt\", \"shockbait_prompt\"];\n\nreturn prompts.map((item, index) => {\n  return {\n    json: {\n      type: labels[index],\n      prompt: item.json?.prompt || item.json?.text || \"\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        2912
+      ],
+      "id": "f117d8ad-ef34-4f1e-b82b-a4e1d23f315c",
+      "name": "Combine Prompts2"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "model": "gpt-image-1",
+        "prompt": "={{ $json.prompt }}",
+        "options": {
+          "quality": "medium",
+          "size": "1536x1024"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        720,
+        2768
+      ],
+      "id": "32c14c27-8883-4504-8075-da8267865f26",
+      "name": "Generate an image2",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1FhXYa5bZKs9V42mbaoVFlgQggA0-83NyeaYZcLH1A-U/edit?usp=drive_link",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Quackr Keywords - Quackr Keywords",
+          "mode": "name"
+        },
+        "combineFilters": "OR",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -944,
+        3184
+      ],
+      "id": "f0f18981-47c9-4af0-a36e-b540b5e68bba",
+      "name": "Keywords1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $items();\n\n// Pick a random row\nconst randomIndex = Math.floor(Math.random() * items.length);\nconst row = items[randomIndex].json;\n\n// Return the full row (optional), or just the keyword\nreturn [\n  {\n    json: {\n      keyword: row[\"Keyword\"], // exact column name\n      traffic: row[\"Avg. Monthly Traffic\"],\n      bid_low: row[\"Top of page bid (low)\"],\n      bid_high: row[\"Top of page bid (high)\"],\n      competition: row[\"Competition\"],\n      match_type: row[\"Match Type\"]\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        3184
+      ],
+      "id": "6efd61cc-45e2-4ed6-bcdf-10523ac49bb4",
+      "name": "Random Keyword Generator1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const labels = [\"meme\", \"cine\", \"ad\", \"shock\"];\n\nreturn items.map((item, index) => {\n  const now = new Date();\n  const timestamp = now.toISOString().replace(/[-:]/g, '').split('.')[0].replace('T', '_');\n  const label = labels[index] || `image_${index + 1}`;\n  const fileName = `${label}_${timestamp}.png`;\n\n  const binaryFieldName = Object.keys(item.binary || {})[0];\n\n  return {\n    json: {\n      ...item.json,\n      image_label: label,\n      image_name: fileName,\n      timestamp\n    },\n    binary: {\n      [binaryFieldName]: {\n        ...item.binary[binaryFieldName],\n        fileName: fileName\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        2768
+      ],
+      "id": "1ed8e655-cd08-4dd3-9c6b-5b07700488e1",
+      "name": "Rename Images2"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.image_name }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "=https://drive.google.com/drive/folders/1VgMHQmIpE0f55_Xu7pYMRPgMST4840rQ?usp=sharing",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1232,
+        2896
+      ],
+      "id": "af1e2e50-72a2-498c-bb74-a101069030fe",
+      "name": "Upload File2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "xPESZJerDCw4ZkFC",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=SYSTEM:\nYou write short, cheeky Instagram captions. Return STRICT JSON only.\n\nUSER:\nType: {{ $json.type }}\nIdea: {{ $json.idea || $json.prompt }}\nTop searches: {{ $json.top_searches }}\nTop keywords: {{ $json.top_3_keywords }}\nUser expectations: {{ $json.user_expectations }}\n\nRules:\n- ≤ 100 words, conversational, a bit sarcastic.\n- Include 1–2 emojis (in the caption).\n- Privacy-forward benefits; no hard sell.\n- Build space-separated hashtags that actually fit the idea.\n- Return ONLY this JSON:\n{\n  \"caption\": \"string (the main caption text)\"\n}\n\nTake this caption as reference:\nStill handing out your real number like candy? Seriously? ☹️.\n\nTemporary numbers aren't just for spies in movies.\nThey're for humans in 2025 who know that privacy ≠ paranoia.\n\nUse Quackr to verify WhatsApp, sign up for Telegram, or avoid those weird follow-up calls from marketplace randos.\n\nIt’s easy, secure, and doesn’t involve putting on pants.\n\n💬 Comment if this made you smirk\n🔗 Link in bio\n\nOUTPUT EXACTLY IN THIS TEMPLATE in every caption:\n\"Caption\"\n\"\\n\\n→ Try it today!!: Link in bio 🔗\"\n\"\\n\\n Hashtags\""
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1616,
+        3088
+      ],
+      "id": "e95f61e1-2449-4773-9e44-58632eea5558",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input: single combined object with keys like meme_prompt, cinematic_prompt, directad_prompt, shockbait_prompt\n// Also includes: top_searches, top_3_keywords, search_intent, user_expectations\n// Output: one item per prompt, each including the extra variables (both as fields and inside the prompt text)\n\nconst src = $json;\n\nconst map = {\n  meme_prompt: 'meme',\n  cinematic_prompt: 'cine',\n  directad_prompt: 'ad',\n  shockbait_prompt: 'shock',\n};\n\nconst str = (v) =>\n  Array.isArray(v) ? v.filter(Boolean).join(', ') : (v ?? '');\n\nconst extras = {\n  top_searches: str(src.top_searches),\n  top_3_keywords: str(src.top_3_keywords),\n  search_intent: str(src.search_intent),\n  user_expectations: str(src.user_expectations),\n};\n\nconst out = [];\n\nfor (const [key, type] of Object.entries(map)) {\n  if (!src[key]) continue;\n\n  const idea = String(src[key]);\n\n  out.push({\n    json: {\n      type,\n      // Prompt includes the extras so your caption model can use them\n      prompt:\n        `Write a short, engaging Instagram caption for this idea: \"${idea}\". ` +\n        `Use 1–2 emojis and all applicable hashtags. ` +\n        `Context — Top searches: ${extras.top_searches}; ` +\n        `Keywords: ${extras.top_3_keywords}; ` +\n        `Intent: ${extras.search_intent}; ` +\n        `User expectations: ${extras.user_expectations}.`,\n      // Also expose extras as separate fields for downstream nodes\n      top_searches: extras.top_searches,\n      top_3_keywords: extras.top_3_keywords,\n      search_intent: extras.search_intent,\n      user_expectations: extras.user_expectations,\n    },\n  });\n}\n\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        3088
+      ],
+      "id": "c1644d16-9c61-4771-babb-e15d20651bb8",
+      "name": "Caption Generator1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Id": "==ROW()-1",
+            "Image Name": "={{ $json.image_name }}",
+            "Timestamp": "={{ $json.timestamp }}",
+            "Type": "={{ $json.image_label }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1232,
+        2608
+      ],
+      "id": "7a515370-ebfa-4a6a-a8a9-afc2e6791122",
+      "name": "Append row in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        224,
+        2880
+      ],
+      "id": "b360e1ea-add2-4ee1-a5b1-642245caa6b5",
+      "name": "Merge Prompts2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Image Name": "={{ $json[\"Image Name\"] }}",
+            "Image URL": "={{ $json.url }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1952,
+        2768
+      ],
+      "id": "63bd7a4a-75cf-42fa-aee6-248ba11bedde",
+      "name": "Update URL2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $items();  // merged items from both inputs\n\nconst metaItems = items.filter(item => item.json[\"Image Name\"]);\nconst driveItems = items.filter(item => item.json.name && item.json.webContentLink);\n\nconst combined = metaItems.map(meta => {\n  const match = driveItems.find(d => d.json.name.trim() === meta.json[\"Image Name\"].trim());\n\n  return {\n    json: {\n      ...meta.json,\n      url: match?.json?.webContentLink || null\n    }\n  };\n});\n\nreturn combined;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1728,
+        2768
+      ],
+      "id": "cc4d1d8e-fdb8-44dc-bcd5-0f3460d524b6",
+      "name": "Combine Metadata2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1504,
+        2768
+      ],
+      "id": "d906e3cf-6abc-4695-8020-9f03105c7436",
+      "name": "Merge Metadata2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// 1) Image/meta rows (Type + Image Name + URL)\nconst metaItems = items.filter(i => i.Type && i[\"Image Name\"] && (i.url || i[\"Image URL\"]));\n\n// 2) Collect captions from assistant messages (string or object)\nconst captions = items\n  .filter(i => i.message?.content)\n  .map(i => {\n    const c = i.message.content;\n    if (typeof c === 'object' && c.caption) {\n      return String(c.caption).trim();\n    }\n    if (typeof c === 'string') {\n      // Try parse JSON, else fallback to regex/whole text\n      try {\n        const parsed = JSON.parse(c);\n        if (parsed.caption) return String(parsed.caption).trim();\n      } catch (_) {}\n      const m = c.match(/caption\\s*:\\s*([\\s\\S]*)/i);\n      return (m ? m[1] : c).trim();\n    }\n    return \"\";\n  })\n  .filter(Boolean);\n\n// 3) Clean the captions by removing \" dash \" and replacing \"dash\" with an empty string\nconst cleanedCaptions = captions.map(caption => \n  caption\n    .replace(/\\s*dash\\s*/g, '')  // Removes \" dash \" (with spaces) without replacing with empty string\n    .replace(/dash/g, '')         // Replaces \"dash\" (without spaces) with an empty string\n);\n\n// 4) Build output mapped by index (wrap index if fewer captions)\nconst output = metaItems.map((meta, idx) => ({\n  json: {\n    Type: meta.Type,\n    \"Image Name\": meta[\"Image Name\"],\n    Timestamp: meta.Timestamp,\n    url: meta.url || meta[\"Image URL\"],\n    instagram_caption: cleanedCaptions.length ? cleanedCaptions[idx % cleanedCaptions.length] : \"\",\n    node_id: \"17841475746665688\"\n  }\n}));\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2288,
+        3072
+      ],
+      "id": "c56d437b-d42c-4fb2-bc51-8cabf75e721a",
+      "name": "Combine Captions2"
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "image_url",
+                "value": "={{ $json.url }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.caption }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        3792,
+        3056
+      ],
+      "id": "72b24800-4643-41a9-90ff-75e675f0d4b5",
+      "name": "Create Container ID2",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media_publish",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "creation_id",
+                "value": "={{ $json.id }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        4064,
+        3056
+      ],
+      "id": "1d60fd9b-f9bf-40d9-a40c-de1d597443f8",
+      "name": "Create Post2",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://upload.imagekit.io/api/v1/files/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json[\"Image URL\"] }}"
+            },
+            {
+              "name": "fileName",
+              "value": "={{ $json[\"Image Name\"] }}"
+            },
+            {
+              "name": "useUniqueFileName",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3040,
+        2928
+      ],
+      "id": "2d955e8d-42c3-4e44-99ce-0db4b0482a9b",
+      "name": "HTTP Request5",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "0skI5Od4ZVbLAMBi",
+          "name": "Image Kit"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json[\"Image Name\"] }}"
+            }
+          ]
+        },
+        "combineFilters": "OR",
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2768,
+        3072
+      ],
+      "id": "086fbb80-7bf5-4de5-8aac-374d9929464d",
+      "name": "Get row(s) in sheet4",
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Instagram Caption": "={{ $json.instagram_caption }}",
+            "Image Name": "={{ $json[\"Image Name\"] }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "Id",
+              "displayName": "Id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Instagram Caption",
+              "displayName": "Instagram Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2512,
+        3072
+      ],
+      "id": "83861911-151a-4566-9427-d95941902e50",
+      "name": "Update Captions2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3312,
+        3056
+      ],
+      "id": "bb7e2598-03dc-4b08-a516-18efb6b1bbf6",
+      "name": "Merge Container Metadata2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2032,
+        3072
+      ],
+      "id": "5f0b2032-8bfd-49b0-876a-6f8435558ebc",
+      "name": "Merge All2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const uploadItems = items.filter(item => item.json.url); // ImageKit upload results\nconst sheetItems = items.filter(item => item.json[\"Instagram Caption\"]); // Sheet rows\n\nreturn uploadItems.map(upload => {\n  const name = upload.json.name || \"\";\n  let matchedType = \"\";\n\n  // Extract prefix from name (e.g., meme_20250805... → meme)\n  const match = name.match(/^(meme|cine|ad|shock)/);\n  if (match) matchedType = match[1];\n\n  // Find matching row from sheet by Type\n  const matchedRow = sheetItems.find(row => row.json.Type === matchedType);\n\n  return {\n    json: {\n      url: upload.json.url,\n      caption: matchedRow ? matchedRow.json[\"Instagram Caption\"] : \"\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3552,
+        3056
+      ],
+      "id": "4851a15f-242e-4a52-807d-db1e02d11af5",
+      "name": "Combine Container Metadata2"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json['Image Name'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2176,
+        2768
+      ],
+      "id": "79770828-cc4c-43ea-ba34-c5ac4d638fa9",
+      "name": "Get row(s) in sheet5",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "1048b80f-8302-4384-8bb2-c683e56d9da6",
+      "name": "Trigger: Start Daily Content Generation3",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -1168,
+        3824
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "jsCode": "const personas = [\n  \"Online dating app user\",\n  \"Privacy-conscious tech user\",\n  \"QA engineer testing OTP flows\",\n  \"Marketplace seller\",\n  \"International traveler / digital nomad\",\n  \"Coupon / promo hunter\",\n  \"Freelancer or remote worker\",\n  \"Crypto / Telegram user managing multiple identities\"\n];\n\nconst randomIndex = Math.floor(Math.random() * personas.length);\nconst selectedPersona = personas[randomIndex];\n\nreturn [\n  {\n    json: {\n      persona: selectedPersona\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        3824
+      ],
+      "id": "855310cd-e31a-4383-9044-836ff171fc03",
+      "name": "Random Persona Generator3"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    prompt: `You're a tech infoblogger and digital nomad who wants to educate and preach privacy online by posting to your followers on Instagram.\n    \nBased on the persona ${$json.persona} generate the image.\n\nCreate a 4-part Instagram carousel image series that tells a story about digital privacy and the importance of using temporary phone numbers.\n\nEach image should build on the previous one like a mini-story or comic strip.\n\nThe tone should be bold, Gen Z-friendly, and a super informative.\n\nTheme: Keep a constant theme using the same color scheme/bg theme throughout. The colors I want are Blue, Yellow and White.\n\nEach slide should have punchy text (headline-style) that hooks the user to the topic, and the visuals should clearly support the message.\n\nSlide 1: Introduce the problem — (Use a catchy hook which grabs the users attention to the topic with a mathcing theme supporting it)\nSlide 2: Show consequences — (Have supporting points on the negative affecrs 2-3 very well thought and structure. Keeping the same theme from the previous slide 1.)\nSlide 3: Introduce solution — ( Change the theme to something fun and boldly mention the solution and in 2 points the positive effects it will have.)\nSlide 4: Call to action — (Going out with a bang end with this slogan : “Protect your digital life. Start now.” )\n\nThe emotion of the image should be happy.\n\nKeep the font size medium and all the words in the image must be readable.\n\nGive me 4 prompts for each image to be generated. If you generate a bonus meme, name it Slide 5.\n\nGenerate a meme styled image. Create an Instagram post image with a 1:1 resolution (1080x1080).\nUse medium-sized font.\n\nReturn the output same for every run. Below is the template. Make sure you follow this template every time, it is very important.\n\n\"Idea for the story:\" (not an image, just give me the idea for the story)\n\"Slide 1:\" (image)\n\"Slide 2:\" (image)\n\"Slide 3:\" (image)\n\"Slide 4:\" (image)\n\"Slide 5:\" (bonus meme)\n\nNow write a prompt for the meme.`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        3824
+      ],
+      "id": "f71ce767-2719-498d-86d6-51ef6270d85e",
+      "name": "Meme3"
+    },
+    {
+      "parameters": {
+        "content": "## Temporary Number Carousel\n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 1456,
+        "width": 3920
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1424,
+        -32
+      ],
+      "typeVersion": 1,
+      "id": "4ee7c492-57e4-4725-92aa-2077b52d6015",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Generic Post \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 960,
+        "width": 3920,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1424,
+        1440
+      ],
+      "typeVersion": 1,
+      "id": "1ede70e6-10d4-428c-8b75-1472ce9075cf",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Temp Numbers Post \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 1216,
+        "width": 5696,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1424,
+        2416
+      ],
+      "typeVersion": 1,
+      "id": "11bdc40f-5022-44ad-854f-62824c099ab8",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -560,
+        3824
+      ],
+      "id": "25ccad21-aee6-43b8-b1b8-a5b8b5f254d7",
+      "name": "Message a model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.message?.content || $json.content || null;\n\nif (!content) {\n  throw new Error(\"No 'message.content' or 'content' found in input.\");\n}\n\nconst output = [];\n\n// Match any variation of the word \"prompt\" followed by any symbol and line break, then capture everything until next prompt or end\nconst promptRegex = /prompt[\\s:;*–—\\-]*\\s*\\n?\\s*([\\s\\S]*?)(?=\\n\\s*(?:prompt\\b|slide\\b|idea\\b|[-—]{2,}|\\Z))/gim;\n\nlet match;\nwhile ((match = promptRegex.exec(content)) !== null) {\n  const promptText = match[1].trim();\n\n  if (promptText) {\n    output.push({\n      json: {\n        prompt: promptText\n      }\n    });\n  }\n}\n\nif (output.length === 0) {\n  throw new Error(\"No prompts found in the input. Check formatting.\");\n}\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        3824
+      ],
+      "id": "a8644a06-6067-4cda-a714-0a90ecbffe29",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst timestamp = now.toISOString().slice(0, 16).replace(\"T\", \"_\").replace(\":\", \"\"); // e.g. 20250807_1104\nconst batchSize = 6;\n\nreturn items.map((item, index) => {\n  const batchNumber = Math.floor(index / batchSize) + 1;\n  const slideNumber = (index % batchSize) + 1;\n  const paddedBatch = String(batchNumber).padStart(2, '0');\n  const newFileName = `carousel_${paddedBatch}_${slideNumber}_${timestamp}.png`;\n  const folderName = `carousel_${paddedBatch}`;\n\n  return {\n    json: {\n      ...item,\n      newFileName,\n      folderName,\n      slideNumber,\n      batchNumber,\n      timestamp\n    },\n    binary: {\n      data: {\n        ...item.binary.data,\n        fileName: newFileName,\n        mimeType: \"image/png\",\n        fileExtension: \"png\"\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        3824
+      ],
+      "id": "7ad29de5-4ab7-4629-9c8b-4d1693df6a5b",
+      "name": "Rename Images3"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1654348020,
+          "mode": "list",
+          "cachedResultName": "Carousel",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1654348020"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Image Name": "={{ $json.newFileName }}",
+            "Timestamp": "={{ $json.timestamp }}",
+            "ID": "==ROW()-1"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        448,
+        3696
+      ],
+      "id": "735db185-2a11-481a-9dde-9d85f4728733",
+      "name": "Append row in sheet3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.newFileName }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "=https://drive.google.com/drive/folders/1n9LEDfEzGdgbbNwOcu8ZJSANhMAfFEwl?usp=sharing",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        448,
+        3920
+      ],
+      "id": "9040a118-03be-4256-bff6-73a052c3db6f",
+      "name": "Upload File3",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "xPESZJerDCw4ZkFC",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        672,
+        3792
+      ],
+      "id": "243c96d9-c801-4c9e-ba03-1a7c24a3e6ba",
+      "name": "Merge Metadata3"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "model": "gpt-image-1",
+        "prompt": "={{ $json.prompt }}",
+        "options": {
+          "quality": "medium",
+          "size": "1536x1024"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -16,
+        3824
+      ],
+      "id": "2573bbba-dc40-4470-a710-698a8f069ac5",
+      "name": "Generate an image3",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $items();  // merged items from both inputs\n\nconst metaItems = items.filter(item => item.json[\"Image Name\"]);\nconst driveItems = items.filter(item => item.json.name && item.json.webContentLink);\n\nconst combined = metaItems.map(meta => {\n  const match = driveItems.find(d => d.json.name.trim() === meta.json[\"Image Name\"].trim());\n\n  return {\n    json: {\n      ...meta.json,\n      url: match?.json?.webContentLink || null\n    }\n  };\n});\n\nreturn combined;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        3792
+      ],
+      "id": "8dce1240-2ebb-46ca-882d-8fb3e9349728",
+      "name": "Combine Metadata3"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1654348020,
+          "mode": "list",
+          "cachedResultName": "Carousel",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1654348020"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Image Name": "={{ $json[\"Image Name\"] }}",
+            "Image URL": "={{ $json.url }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1040,
+        3792
+      ],
+      "id": "0359e20e-0017-4e89-bb1e-b049098d08ca",
+      "name": "Update URL3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1654348020,
+          "mode": "list",
+          "cachedResultName": "Carousel",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1654348020"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json['Image Name'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1232,
+        3792
+      ],
+      "id": "278a5216-84b6-4287-8b16-d21959ae07f3",
+      "name": "Get row(s) in sheet6",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "text": "Analyze the images and generate one instagram caption for all the images combined.\n\nThe caption must follow the below guidelines:\n\n- 1–2 sentences max\n- Hooks them in the first line\n- Add all applicable hashtags, punchy truth bombs or thoughts\n\nExamples of style:\n- “If the app is free, you’re probably the product.”\n- “Using incognito like it’s invisibility. Google still sees you, king.”\n- “One day we’ll explain to kids we traded privacy for ‘Which Marvel character are you?’ quizzes.”\n\nBefore the hashtags line, add this line for every caption.\n\"→ Try it today!!: Link in bio 🔗\"\n\nIf you need take this caption as a reference, here's an example of a good desc : \n\nUnlock the convenience virtual phone numbers! 🔑 \n\nWhether you’re signing up for a new service, verifying your identity, or protecting your real phone number, these numbers give you total control. ✅ \n\nNo more sharing personal details when registering for apps or websites! 🚀 \n\nJust get a virtual number for secure OTP verifications and experience hassle-free sign-ups. 💡 \n\nProtect your privacy, reduce spam, and streamline your online experience. The best part? It’s all done with a few clicks! 🖱️ \n\nStay ahead with smarter, safer sign-ups online! 🔒 \n\n#VirtualNumber #TemporaryPhoneNumber #PhoneVerification #OTPVerification #PrivacyFirst #SecureSignUp #DigitalPrivacy #OnlineSafety #NoSpam #HassleFree #PrivacyProtection #SmartTech #Quackr\n\nI want ONLY ONE caption to be given by you for all the six images combined.\n\nAlso it is important you include the below template in every caption:\n\"Caption\"\n\"\\n\\n→ Try it today!!: Link in bio 🔗\"\n\"\\n\\n Hashtags\"",
+        "inputType": "base64",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        224,
+        4080
+      ],
+      "id": "003fcdd2-fc51-4a65-a860-3ace108ed19c",
+      "name": "Analyze image1",
+      "credentials": {
+        "openAiApi": {
+          "id": "oWTqEM38gWOSBvSJ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1040,
+        4064
+      ],
+      "id": "c26bc6fb-ceb7-47b6-aa9c-3a9c7311f8e7",
+      "name": "Merge All3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Separate image and caption items\nconst imageItems = items.filter(item => item.json['Image Name']);\nconst captionItems = items.filter(item => item.json.content);\n\n// Randomly select one caption\nconst randomCaption = captionItems[Math.floor(Math.random() * captionItems.length)]?.json?.content || '';\n\nreturn imageItems.map((item) => {\n  const json = item.json;\n\n  return {\n    json: {\n      image_name: json['Image Name'],\n      image_url: json['Image URL'],\n      timestamp: json['Timestamp'],\n      slide_number: json['ID'],\n      caption: randomCaption\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        4064
+      ],
+      "id": "8d6297c1-e003-4d63-9e93-5535fdd04505",
+      "name": "Combine Captions3"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1654348020,
+          "mode": "list",
+          "cachedResultName": "Carousel",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1654348020"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Image Name": "={{ $json.image_name }}",
+            "Caption": "={{ $json.caption }}"
+          },
+          "matchingColumns": [
+            "Image Name"
+          ],
+          "schema": [
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image Name",
+              "displayName": "Image Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Image URL",
+              "displayName": "Image URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Caption",
+              "displayName": "Caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1440,
+        3952
+      ],
+      "id": "74d14ddd-2210-48a2-98a8-2f379deb0aa9",
+      "name": "Update Captions3",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1654348020,
+          "mode": "list",
+          "cachedResultName": "Carousel",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1654348020"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json[\"Image Name\"] }}"
+            }
+          ]
+        },
+        "combineFilters": "OR",
+        "options": {
+          "returnFirstMatch": false
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1616,
+        3952
+      ],
+      "id": "9cf8e9bb-c942-45b7-8302-c588bd377707",
+      "name": "Get row(s) in sheet7",
+      "executeOnce": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://upload.imagekit.io/api/v1/files/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json[\"Image URL\"] }}"
+            },
+            {
+              "name": "fileName",
+              "value": "={{ $json[\"Image Name\"] }}"
+            },
+            {
+              "name": "useUniqueFileName",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1808,
+        3840
+      ],
+      "id": "52eb31b4-a703-4cf2-9499-bd01f92682ca",
+      "name": "HTTP Request6",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "0skI5Od4ZVbLAMBi",
+          "name": "Image Kit"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2032,
+        3936
+      ],
+      "id": "1f059b2e-4e2c-4d91-9515-37f5f803a8dc",
+      "name": "Merge Container Metadata3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Separate image uploads and captions\nconst imageItems = items.filter(i => i.url && i.name);\nconst captionItems = items.filter(i => i.Caption);\n\n// Randomize captions\nfunction getRandomCaption() {\n  const randomIndex = Math.floor(Math.random() * captionItems.length);\n  return captionItems[randomIndex]?.Caption || \"\";\n}\n\n// Build output\nconst output = imageItems.map(img => ({\n  json: {\n    name: img.name,\n    url: img.url,\n    caption: getRandomCaption()\n  }\n}));\n\nreturn output;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        3936
+      ],
+      "id": "7bdd8f34-f660-4f1f-87d4-788369cb72bd",
+      "name": "Combine Container Metadata3"
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "image_url",
+                "value": "={{ $json.url }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.caption }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        2416,
+        3936
+      ],
+      "id": "9b78c827-2060-4ace-949f-d1e619ca472b",
+      "name": "Create Container ID3",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ids = $input.all().map(item => item.json.id);\n\nreturn [{\n  json: {\n    children: ids\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2608,
+        3936
+      ],
+      "id": "db26d302-bd42-4b94-a309-c7af58041d29",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/17841475746665688/media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "caption",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "media_type",
+              "value": "CAROUSEL"
+            },
+            {
+              "name": "children",
+              "value": "={{ $json.children }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2432,
+        4160
+      ],
+      "id": "48d9a2be-97df-4910-badd-5b8c9406a855",
+      "name": "HTTP Request7",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpRequestMethod": "POST",
+        "graphApiVersion": "v22.0",
+        "node": "17841475746665688",
+        "edge": "media_publish",
+        "options": {
+          "queryParameters": {
+            "parameter": [
+              {
+                "name": "creation_id",
+                "value": "={{ $json.id }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [
+        2624,
+        4160
+      ],
+      "id": "781a4089-0b82-43ab-8c47-48b828ecee58",
+      "name": "Create Post3",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Stoytelling Carousel\n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 880,
+        "width": 4832,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1424,
+        3648
+      ],
+      "typeVersion": 1,
+      "id": "8e16a12f-2d96-4521-b78c-aa3875418d38",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2048,
+        4160
+      ],
+      "id": "326620c8-d513-4e3f-b05f-b600b87dd39b",
+      "name": "Merge Captions"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Step 1: Get children array\nconst childrenEntry = items.find(i => i.children && Array.isArray(i.children));\nconst children = childrenEntry?.children || [];\n\n// Step 2: Get all image slides (excluding the children object)\nconst slides = items.filter(i => i.image_name && i.image_url);\n\n// Step 3: Extract all captions and pick one randomly\nconst captions = slides.map(i => i.caption).filter(Boolean);\nconst randomCaption = captions.length ? captions[Math.floor(Math.random() * captions.length)] : \"\";\n\n// Step 4: Build final output\nconst output = {\n  children,\n  images: slides.map(slide => ({\n    name: slide.image_name,\n    url: slide.image_url\n  })),\n  caption: randomCaption\n};\n\nreturn [{ json: output }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2224,
+        4160
+      ],
+      "id": "f562722f-98a3-49e6-80a6-b5ecfd4b8e01",
+      "name": "Code3"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -944,
+        1200
+      ],
+      "id": "54951de8-a835-4140-8f61-b5fcc4a3f35d",
+      "name": "Merge Keywords"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine merge output into a single flat object (no arrays inside)\nconst combined = {};\n\nfor (const it of items) {\n  const j = it.json ?? it;\n\n  // Prompt items\n  if (j.type && j.prompt) {\n    combined[j.type] = j.prompt;\n    continue;\n  }\n\n  // Metadata item (flatten lists to strings)\n  if (Array.isArray(j.top_searches)) {\n    combined.top_searches = j.top_searches.filter(Boolean).join(\", \");\n  } else if (typeof j.top_searches === \"string\") {\n    combined.top_searches = j.top_searches;\n  }\n\n  if (Array.isArray(j.top_3_keywords)) {\n    combined.top_3_keywords = j.top_3_keywords.filter(Boolean).join(\", \");\n  } else if (typeof j.top_3_keywords === \"string\") {\n    combined.top_3_keywords = j.top_3_keywords;\n  }\n\n  if (typeof j.search_intent === \"string\") {\n    combined.search_intent = j.search_intent;\n  }\n\n  if (Array.isArray(j.user_expectations)) {\n    combined.user_expectations = j.user_expectations.filter(Boolean).join(\"; \");\n  } else if (typeof j.user_expectations === \"string\") {\n    combined.user_expectations = j.user_expectations;\n  }\n}\n\n// n8n requires returning an array of items\nreturn [{ json: combined }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        1200
+      ],
+      "id": "dcef2336-a891-4228-86d1-a9d9ca8b88ba",
+      "name": "Combine Keywords and Prompts"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\n// Step 1: Get children\nconst childrenEntry = items.find(i => Array.isArray(i.children));\nconst children = childrenEntry?.children || [];\n\n// Step 2: Filter image blocks\nconst imageBlocks = items.filter(i => i.url && i[\"Image Name\"]);\n\n// Step 3: Extract captions\nconst captions = imageBlocks.map(i => i.instagram_caption).filter(Boolean);\nconst randomCaption = captions.length ? captions[Math.floor(Math.random() * captions.length)] : \"\";\n\n// Step 4: Build final output\nconst result = {\n  children,\n  images: imageBlocks.map(i => ({\n    name: i[\"Image Name\"],\n    url: i.url\n  })),\n  caption: randomCaption\n};\n\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        1248
+      ],
+      "id": "8a8fbefd-75a5-434c-a18f-ec9b9e5d181c",
+      "name": "Combine Post Metadata"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1136,
+        1248
+      ],
+      "id": "f3f9dde6-a1a7-49d9-b740-bccf1e8e5ac5",
+      "name": "Merge Containers and Captions"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        736,
+        3088
+      ],
+      "id": "f14ae5c8-7cf7-4e40-b3eb-99714e298dc8",
+      "name": "Merge Keywords1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine merge output into a single flat object (no arrays inside)\n// Handles arrays or strings for metadata fields safely\n\nconst joinify = (v, sep = \", \") => {\n  if (Array.isArray(v)) return v.filter(Boolean).join(sep);\n  if (v === null || v === undefined) return \"\";\n  return String(v);\n};\n\nconst combined = {};\n\nfor (const it of items) {\n  const j = it.json ?? it;\n\n  // Prompt items -> keep keys exactly as *_prompt\n  if (j.type && j.prompt) {\n    combined[j.type] = j.prompt;\n    continue;\n  }\n\n  // Metadata items (flatten)\n  if (j.top_searches !== undefined) {\n    combined.top_searches = joinify(j.top_searches, \", \");\n  }\n  if (j.top_3_keywords !== undefined) {\n    combined.top_3_keywords = joinify(j.top_3_keywords, \", \");\n  }\n  if (j.search_intent !== undefined) {\n    combined.search_intent = joinify(j.search_intent, \", \");\n  }\n  if (j.user_expectations !== undefined) {\n    combined.user_expectations = joinify(j.user_expectations, \"; \");\n  }\n}\n\n// n8n requires returning an array of items; return a single item.\nreturn [{ json: combined }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        3088
+      ],
+      "id": "2476617c-ca04-496e-96ab-1d5315808fe3",
+      "name": "Combine Keywords and Prompts1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "=https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1978277557,
+          "mode": "list",
+          "cachedResultName": "Instagram",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iPeMah7aHXoVhtRR7Wm9lxDX6X0ebZjeFiYFWlS4bNU/edit#gid=1978277557"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Image Name",
+              "lookupValue": "={{ $json['Image Name'] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        240,
+        928
+      ],
+      "id": "a3b6ef74-dd73-44df-b181-7ea76735c800",
+      "name": "Read Rows",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "qbpb7UmEwEwZfQL8",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://upload.imagekit.io/api/v1/files/upload",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "file",
+              "value": "={{ $json[\"Image URL\"] }}"
+            },
+            {
+              "name": "fileName",
+              "value": "={{ $json[\"Image Name\"] }}"
+            },
+            {
+              "name": "useUniqueFileName",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        944
+      ],
+      "id": "9781e51b-0399-4335-9ad4-bed4c56766e5",
+      "name": "Create Public URL",
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "0skI5Od4ZVbLAMBi",
+          "name": "Image Kit"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.facebook.com/v19.0/17841475746665688/media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "caption",
+              "value": "={{ $json.caption }}"
+            },
+            {
+              "name": "media_type",
+              "value": "CAROUSEL"
+            },
+            {
+              "name": "children",
+              "value": "={{ $json.children }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1536,
+        1248
+      ],
+      "id": "7244fa1e-4d65-4a50-8e2b-121cd256ce9b",
+      "name": "Create Carousel Container ID",
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "axZ6BzzXytbe6AdV",
+          "name": "Facebook Graph account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Trigger: Start Daily Content Generation": {
+      "main": [
+        [
+          {
+            "node": "Random Persona Generator",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random Persona Generator": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Output Parser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Parser": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Merge Keywords",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Combined Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combined Output": {
+      "main": [
+        [
+          {
+            "node": "Meme",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Cinematic",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DirectAd",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Shockbait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cinematic": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Meme": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DirectAd": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Shockbait": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Combine Prompts": {
+      "main": [
+        [
+          {
+            "node": "Generate an image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image": {
+      "main": [
+        [
+          {
+            "node": "Rename Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keywords": {
+      "main": [
+        [
+          {
+            "node": "Random Keyword Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random Keyword Generator": {
+      "main": [
+        [
+          {
+            "node": "Keyword Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rename Images": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload File": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Caption Generator": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Merge All",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Prompts": {
+      "main": [
+        [
+          {
+            "node": "Combine Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Metadata": {
+      "main": [
+        [
+          {
+            "node": "Update URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Metadata": {
+      "main": [
+        [
+          {
+            "node": "Combine Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Captions": {
+      "main": [
+        [
+          {
+            "node": "Update Captions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Containers and Captions",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Create Container ID": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Create Public URL",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Container Metadata",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Update Captions": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All": {
+      "main": [
+        [
+          {
+            "node": "Combine Captions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Container Metadata": {
+      "main": [
+        [
+          {
+            "node": "Create Container ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger: Start Daily Content Generation1": {
+      "main": [
+        [
+          {
+            "node": "Random Persona Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random Persona Generator1": {
+      "main": [
+        [
+          {
+            "node": "Cinematic1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Meme1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DirectAd1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meme1": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image1": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rename Images1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rename Images1": {
+      "main": [
+        [
+          {
+            "node": "Upload File1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All1": {
+      "main": [
+        [
+          {
+            "node": "Combine Captions1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Metadata1": {
+      "main": [
+        [
+          {
+            "node": "Update URL1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload File1": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Metadata1": {
+      "main": [
+        [
+          {
+            "node": "Combine Metadata1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Captions1": {
+      "main": [
+        [
+          {
+            "node": "Update Captions1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Captions1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Container Metadata1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Merge Container Metadata1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Container Metadata1": {
+      "main": [
+        [
+          {
+            "node": "Combine Container Metadata1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Container Metadata1": {
+      "main": [
+        [
+          {
+            "node": "Create Container ID1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Container ID1": {
+      "main": [
+        [
+          {
+            "node": "Create Post1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cinematic1": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "DirectAd1": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Prompts1": {
+      "main": [
+        [
+          {
+            "node": "Combine Prompts1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Prompts1": {
+      "main": [
+        [
+          {
+            "node": "Generate an image1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Post1": {
+      "main": [
+        []
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "Merge All1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Update URL1": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet2": {
+      "main": [
+        [
+          {
+            "node": "Merge All1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update URL": {
+      "main": [
+        [
+          {
+            "node": "Read Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Container Metadata": {
+      "main": [
+        [
+          {
+            "node": "Combine Container Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Post": {
+      "main": [
+        []
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Merge Containers and Captions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger: Start Daily Content Generation2": {
+      "main": [
+        [
+          {
+            "node": "Random Persona Generator2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Keywords1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random Persona Generator2": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Analyzer1": {
+      "main": [
+        [
+          {
+            "node": "Output Parser1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Parser1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Merge Keywords1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Combined Output1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combined Output1": {
+      "main": [
+        [
+          {
+            "node": "DirectAd2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cinematic2": {
+      "main": [
+        []
+      ]
+    },
+    "Meme2": {
+      "main": [
+        []
+      ]
+    },
+    "DirectAd2": {
+      "main": [
+        [
+          {
+            "node": "Merge Prompts2",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Shockbait1": {
+      "main": [
+        []
+      ]
+    },
+    "Combine Prompts2": {
+      "main": [
+        [
+          {
+            "node": "Generate an image2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Keywords1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image2": {
+      "main": [
+        [
+          {
+            "node": "Rename Images2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keywords1": {
+      "main": [
+        [
+          {
+            "node": "Random Keyword Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random Keyword Generator1": {
+      "main": [
+        [
+          {
+            "node": "Keyword Analyzer1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rename Images2": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload File2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload File2": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Merge All2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Caption Generator1": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet2": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Prompts2": {
+      "main": [
+        [
+          {
+            "node": "Combine Prompts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Metadata2": {
+      "main": [
+        [
+          {
+            "node": "Update URL2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Metadata2": {
+      "main": [
+        [
+          {
+            "node": "Combine Metadata2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Captions2": {
+      "main": [
+        [
+          {
+            "node": "Update Captions2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Container ID2": {
+      "main": [
+        [
+          {
+            "node": "Create Post2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request5": {
+      "main": [
+        [
+          {
+            "node": "Merge Container Metadata2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet4": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Container Metadata2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Update Captions2": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All2": {
+      "main": [
+        [
+          {
+            "node": "Combine Captions2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Container Metadata2": {
+      "main": [
+        [
+          {
+            "node": "Create Container ID2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update URL2": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet5": {
+      "main": [
+        [
+          {
+            "node": "Merge All2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger: Start Daily Content Generation3": {
+      "main": [
+        [
+          {
+            "node": "Random Persona Generator3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Random Persona Generator3": {
+      "main": [
+        [
+          {
+            "node": "Meme3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meme3": {
+      "main": [
+        [
+          {
+            "node": "Message a model2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model2": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Generate an image3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate an image3": {
+      "main": [
+        [
+          {
+            "node": "Rename Images3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Analyze image1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rename Images3": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Upload File3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload File3": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Append row in sheet3": {
+      "main": [
+        [
+          {
+            "node": "Merge Metadata3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Metadata3": {
+      "main": [
+        [
+          {
+            "node": "Combine Metadata3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Metadata3": {
+      "main": [
+        [
+          {
+            "node": "Update URL3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update URL3": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image1": {
+      "main": [
+        [
+          {
+            "node": "Merge All3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet6": {
+      "main": [
+        [
+          {
+            "node": "Merge All3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All3": {
+      "main": [
+        [
+          {
+            "node": "Combine Captions3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Captions3": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Captions3": {
+      "main": [
+        [
+          {
+            "node": "Update Captions3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Captions",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet7": {
+      "main": [
+        [
+          {
+            "node": "Merge Container Metadata3",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "HTTP Request6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request6": {
+      "main": [
+        [
+          {
+            "node": "Merge Container Metadata3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Container Metadata3": {
+      "main": [
+        [
+          {
+            "node": "Combine Container Metadata3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Container Metadata3": {
+      "main": [
+        [
+          {
+            "node": "Create Container ID3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Container ID3": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Merge Captions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request7": {
+      "main": [
+        [
+          {
+            "node": "Create Post3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Container Metadata2": {
+      "main": [
+        [
+          {
+            "node": "Combine Container Metadata2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Captions": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code3": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Keywords": {
+      "main": [
+        [
+          {
+            "node": "Combine Keywords and Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Keywords and Prompts": {
+      "main": [
+        [
+          {
+            "node": "Caption Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Post Metadata": {
+      "main": [
+        [
+          {
+            "node": "Create Carousel Container ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Containers and Captions": {
+      "main": [
+        [
+          {
+            "node": "Combine Post Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Keywords and Prompts1": {
+      "main": [
+        [
+          {
+            "node": "Caption Generator1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Keywords1": {
+      "main": [
+        [
+          {
+            "node": "Combine Keywords and Prompts1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Rows": {
+      "main": [
+        [
+          {
+            "node": "Merge All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Public URL": {
+      "main": [
+        [
+          {
+            "node": "Merge Container Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Carousel Container ID": {
+      "main": [
+        [
+          {
+            "node": "Create Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Trigger: Start Daily Content Generation": {
+      "recurrenceRules": []
+    },
+    "node:Trigger: Start Daily Content Generation1": {
+      "recurrenceRules": []
+    },
+    "node:Trigger: Start Daily Content Generation2": {
+      "recurrenceRules": []
+    },
+    "node:Trigger: Start Daily Content Generation3": {
+      "recurrenceRules": []
+    }
+  },
+  "pinData": {
+    "Trigger: Start Daily Content Generation1": [
+      {
+        "json": {
+          "timestamp": "2025-08-13T06:00:15.004+04:00",
+          "Readable date": "August 13th 2025, 6:00:15 am",
+          "Readable time": "6:00:15 am",
+          "Day of week": "Wednesday",
+          "Year": "2025",
+          "Month": "August",
+          "Day of month": "13",
+          "Hour": "06",
+          "Minute": "00",
+          "Second": "15",
+          "Timezone": "Asia/Dubai (UTC+04:00)"
+        }
+      }
+    ]
+  },
+  "triggerCount": 4,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
